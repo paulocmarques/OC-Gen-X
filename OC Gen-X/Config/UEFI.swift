@@ -48,7 +48,7 @@ struct audio: Codable {
     var audioOut: Int = 0
     var audioSupport: Bool = false
     var minimumVolume: Int = 20
-    var playChime: Bool = false
+    var playChime: String = "Auto"
     var volumeAmplifier: Int = 0
     
     enum CodingKeys: String, CodingKey {
@@ -90,6 +90,7 @@ struct output: Codable {
     var clearScreenOnModeSwitch: Bool = false
     var consoleMode: String = ""
     var directGopRendering: Bool = false
+    var forceResolution: Bool = false
     var ignoreTextInGraphics: Bool = false
     var provideConsoleGop: Bool = true
     var reconnectOnResChange: Bool = false
@@ -103,6 +104,7 @@ struct output: Codable {
         case clearScreenOnModeSwitch = "ClearScreenOnModeSwitch"
         case consoleMode = "ConsoleMode"
         case directGopRendering = "DirectGopRendering"
+        case forceResolution = "ForceResolution"
         case ignoreTextInGraphics = "IgnoreTextInGraphics"
         case provideConsoleGop = "ProvideConsoleGop"
         case reconnectOnResChange = "ReconnectOnResChange"
