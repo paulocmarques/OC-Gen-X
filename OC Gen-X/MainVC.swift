@@ -38,12 +38,12 @@ class MainVC: NSViewController {
     @IBOutlet weak var amdGPUChecked: NSButton!
     @IBOutlet weak var nvidiaGPUChecked: NSButton!
     @IBOutlet weak var xhciChecked: NSButton!
+    @IBOutlet weak var openCanopyChecked: NSButton!
     @IBOutlet weak var textfield: HyperlinkTextField!
     @IBOutlet weak var hfsPlusChecked: NSButton!
     @IBOutlet weak var snInput: NSTextField!
     @IBOutlet weak var mlbInput: NSTextField!
     @IBOutlet weak var smuuidInput: NSTextField!
-    @IBOutlet weak var modelInput: NSTextField!
     @IBOutlet weak var wegLabel: NSTextField!
     @IBOutlet weak var wegBootargsTextfield: NSTextField!
     @IBOutlet weak var appleALCBootargs: NSTextField!
@@ -64,6 +64,7 @@ class MainVC: NSViewController {
     @IBOutlet weak var proxintoshChecked: NSButton!
     @IBOutlet weak var ivyBridgeEChecked: NSButton!
     @IBOutlet weak var threadripperChecked: NSButton!
+    @IBOutlet weak var modelInput: NSPopUpButton!
     var ryzenPatches = [kPatch]()
     var threadripperPatches = [kPatch]()
     var config = Root(
@@ -84,7 +85,7 @@ class MainVC: NSViewController {
         uefi: uefi(apfs: apfs(), audio: audio(), input: input(), output: output(), protocols: protocols(), quirks: uQuirks(), reservedMemory: [reservedMemory()])
     )
     
-    var agpmSmbiosList = ["MacPro4,1", "MacPro5,1", "MacPro6,1", "MacPro7,1", "iMac10,1", "iMac11,1", "iMac11,2", "iMac11,3", "iMac12,1", "iMac12,2", "iMac13,1", "iMac13,2", "iMac13,3", "iMac14,1", "iMac14,2", "iMac14,3", "iMac14,4", "iMac15,1", "iMac15,2", "iMac16,1", "iMac16,2", "iMac17,1", "iMac18,1", "iMac18,2", "iMac18,3", "iMac19,1", "iMac19,2", "iMac20,1", "iMac20,2", "iMacPro1,1",]
+    var agpmSmbiosList = ["MacPro4,1", "MacPro5,1", "MacPro6,1", "MacPro7,1", "iMac10,1", "iMac11,1", "iMac11,2", "iMac11,3", "iMac12,1", "iMac12,2", "iMac13,1", "iMac13,2", "iMac13,3", "iMac14,1", "iMac14,2", "iMac14,3", "iMac14,4", "iMac15,1", "iMac16,1", "iMac16,2", "iMac17,1", "iMac18,1", "iMac18,2", "iMac18,3", "iMac19,1", "iMac19,2", "iMac20,1", "iMac20,2", "iMacPro1,1",]
     
     var AMDDictionary = [
         "RX 5600XT": "Vendor1002Device731F",
@@ -185,6 +186,7 @@ class MainVC: NSViewController {
         smbiosList.addItems(withTitles: agpmSmbiosList)
         amdGPUList.addItems(withTitles: sortedAMDDictionary)
         nvidiaGPUList.addItems(withTitles: sortedNvidiaDictionary)
+        modelInput.addItems(withTitles: agpmSmbiosList)
     }
     
     private func applyDesktopGuideHyperlink() {
@@ -391,6 +393,22 @@ class MainVC: NSViewController {
         })
     }
     
+    func shell(launchPath: String, arguments: [String]) -> String?
+    {
+        let task = Process()
+        task.launchPath = launchPath
+        task.arguments = arguments
+        
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.launch()
+        
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: String.Encoding.utf8)
+        
+        return output
+    }
+    
     func addKextToConfig (item: String) {
         let kext = kAdd(arch: "x86_64", bundlePath: "\(item).kext", comment: "", enabled: true, executablePath: "Contents/MacOS/\(item)", maxKernel: "", minKernel: "", plistPath: "Contents/Info.plist")
         config.kernel.kAdd.append(kext)
@@ -409,6 +427,21 @@ class MainVC: NSViewController {
     func addKextPluginToConfig (pluginfor: String, pluginName: String) {
         let kext = kAdd(arch: "x86_64", bundlePath: "\(pluginfor).kext/Contents/PlugIns/\(pluginName).kext", comment: "", enabled: true, executablePath: "Contents/MacOS/\(pluginName)", maxKernel: "", minKernel: "", plistPath: "Contents/Info.plist")
         config.kernel.kAdd.append(kext)
+    }
+    
+    
+    @IBAction func serialRefresh(_ sender: NSButton) {
+        let macSerial = Bundle.main.path(forAuxiliaryExecutable: "macserial")!
+        let modelName = modelInput.titleOfSelectedItem!
+        let sn = shell(launchPath: macSerial, arguments: ["-m", "\(modelName)","-n","1"])!.components(separatedBy: " |")
+        let mlb = shell(launchPath: macSerial, arguments: ["--mlb", "\(sn[0])"])!.components(separatedBy: "\n")
+        let uuid = shell(launchPath: "/bin/bash", arguments: ["-c", "uuidgen"])!.components(separatedBy: "\n")
+        snInput.placeholderString = sn[0]
+        snInput.stringValue = snInput.placeholderString!
+        mlbInput.placeholderString = mlb[0]
+        mlbInput.stringValue = mlbInput.placeholderString!
+        smuuidInput.placeholderString = uuid[0]
+        smuuidInput.stringValue = smuuidInput.placeholderString!
     }
     
     @IBAction func generateClicked(_ sender: NSButton) {
@@ -472,7 +505,6 @@ class MainVC: NSViewController {
             config.misc.security.allowSetDefault = true
             config.nvram.add.addAppleVendorVariableGuid.defaultBackgroundColor = Data([0x00, 0x00, 0x00, 0x00])
             config.nvram.add.addAppleVendorVariableGuid.uiScale = Data([0x01])
-            config.uefi.quirks.deduplicateBootOrder = true
             config.uefi.quirks.ignoreInvalidFlexRatio = true
         default:
             break
@@ -708,10 +740,12 @@ class MainVC: NSViewController {
         
         switch proxintoshChecked.state {
         case .on:
-            config.kernel.emulate.cpuid1Data = Data([0xEC,0x06,0x09,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00])
+            config.booter.quirks.enableWriteUnprotector = false
+            config.booter.quirks.rebuildAppleMemoryMap = true
+            config.booter.quirks.syncRuntimePermissions = true
+            config.kernel.emulate.cpuid1Data = Data([0x57,0x06,0x05,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00])
             config.kernel.emulate.cpuid1Mask = Data([0xFF,0xFF,0xFF,0xFF, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00])
-            config.kernel.kPatch.append(secondRyzenPatch)
-            config.kernel.kPatch.append(twelfthRyzenPatch)
+            config.kernel.kPatch.append(sixthRyzenPatch)
             config.misc.debug.appleDebug = true
             config.misc.debug.applePanic = true
             config.misc.debug.disableWatchDog = true
@@ -1034,7 +1068,7 @@ class MainVC: NSViewController {
                 }
                 
                 if (snInput != nil) {
-                    config.platFormInfo.generic.systemSerialNumber = snInput.stringValue
+                    config.platFormInfo.generic.systemSerialNumber = modelInput.titleOfSelectedItem!
                 }
                 
                 if (mlbInput != nil) {
